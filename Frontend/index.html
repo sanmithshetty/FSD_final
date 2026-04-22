@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyHive — Learn Together</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐝</text></svg>">
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav class="nav">
+  <a class="nav-logo" href="index.html">🐝 Study<span>Hive</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link active">Questions</a>
+    <a href="leaderboard.html" class="nav-link">Leaderboard</a>
+  </div>
+  <div id="nav-auth"></div>
+</nav>
+
+<!-- ── Main ── -->
+<main class="container page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-title">Ask. Answer. <span>Grow Together.</span></div>
+    <p class="hero-sub">StudyHive is where students ask doubts and the community answers. Upvote great answers. Get verified. Earn badges.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:28px">
+      <button class="btn btn-primary" id="btn-ask-question">✏️ Ask a Question</button>
+      <a href="leaderboard.html" class="btn btn-outline">🏆 View Leaderboard</a>
+    </div>
+    <div class="hero-stats" id="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-num" id="stat-q">—</div><div class="hero-stat-label">Questions</div></div>
+      <div class="hero-stat"><div class="hero-stat-num" id="stat-u">—</div><div class="hero-stat-label">Contributors</div></div>
+      <div class="hero-stat"><div class="hero-stat-num" id="stat-a">—</div><div class="hero-stat-label">Answers</div></div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- Left: Questions feed -->
+    <div>
+      <!-- Filters -->
+      <div class="filters-bar">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Search questions..." />
+        </div>
+        <select class="form-select" id="subject-filter" style="width:auto;">
+          <option value="All">All Subjects</option>
+          <option>Mathematics</option><option>Physics</option><option>Chemistry</option>
+          <option>Biology</option><option>Computer Science</option><option>History</option>
+          <option>Geography</option><option>Economics</option><option>English</option>
+          <option>Hindi</option><option>Other</option>
+        </select>
+        <select class="form-select" id="sort-filter" style="width:auto;">
+          <option value="newest">Newest</option>
+          <option value="popular">Most Viewed</option>
+          <option value="unanswered">Unanswered</option>
+        </select>
+      </div>
+
+      <div id="questions-list"></div>
+      <div id="pagination" style="display:flex;gap:8px;justify-content:center;margin-top:24px;"></div>
+    </div>
+
+    <!-- Right: Sidebar -->
+    <div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-family:var(--font-display);font-weight:700;margin-bottom:14px;font-size:1rem">🏆 Top Contributors</div>
+        <div id="sidebar-leaders"></div>
+        <a href="leaderboard.html" style="display:block;text-align:center;margin-top:12px;font-size:.82rem;color:var(--text3)">View full leaderboard →</a>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--font-display);font-weight:700;margin-bottom:12px;font-size:1rem">📚 Subjects</div>
+        <div id="subject-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ── Auth Modal ── -->
+<div class="modal-overlay" id="modal-auth">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="auth-modal-title">Welcome to StudyHive 🐝</div>
+      <button class="modal-close" onclick="closeModal('modal-auth')">✕</button>
+    </div>
+    <div class="tabs" style="margin-bottom:20px">
+      <button class="tab-btn active" onclick="switchAuthTab('login')">Log In</button>
+      <button class="tab-btn" onclick="switchAuthTab('register')">Sign Up</button>
+    </div>
+
+    <!-- Login -->
+    <div id="tab-login">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" id="login-email" placeholder="you@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" type="password" id="login-password" placeholder="••••••••" />
+        </div>
+        <div id="login-error" class="form-error" style="display:none"></div>
+        <button class="btn btn-primary" id="btn-login" onclick="handleLogin()">Log In</button>
+      </div>
+      <p style="text-align:center;margin-top:16px;font-size:.85rem;color:var(--text3)">
+        No account? <a href="#" onclick="switchAuthTab('register')">Sign up free</a>
+      </p>
+    </div>
+
+    <!-- Register -->
+    <div id="tab-register" style="display:none">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" type="text" id="reg-username" placeholder="coolstudent123" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" id="reg-email" placeholder="you@example.com" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" type="password" id="reg-password" placeholder="min. 6 characters" />
+        </div>
+        <div id="reg-error" class="form-error" style="display:none"></div>
+        <button class="btn btn-primary" id="btn-register" onclick="handleRegister()">Create Account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Ask Question Modal ── -->
+<div class="modal-overlay" id="modal-ask">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Ask a Question</div>
+      <button class="modal-close" onclick="closeModal('modal-ask')">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="form-group">
+        <label class="form-label">Title <span style="color:var(--text3)">(10-200 chars)</span></label>
+        <input class="form-input" type="text" id="q-title" placeholder="e.g. How does the photoelectric effect work?" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subject</label>
+        <select class="form-select" id="q-subject">
+          <option value="">Select subject...</option>
+          <option>Mathematics</option><option>Physics</option><option>Chemistry</option>
+          <option>Biology</option><option>Computer Science</option><option>History</option>
+          <option>Geography</option><option>Economics</option><option>English</option>
+          <option>Hindi</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description <span style="color:var(--text3)">(min. 20 chars)</span></label>
+        <textarea class="form-textarea" id="q-body" placeholder="Explain your doubt in detail..." style="min-height:140px"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tags <span style="color:var(--text3)">(comma separated)</span></label>
+        <input class="form-input" type="text" id="q-tags" placeholder="e.g. electromagnetism, waves, optics" />
+      </div>
+      <div id="ask-error" class="form-error" style="display:none"></div>
+      <button class="btn btn-primary" onclick="submitQuestion()">🚀 Post Question</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast container ── -->
+<div id="toast-container"></div>
+
+<script src="config.js"></script>
+<script>
+let currentPage = 1, currentSubject = 'All', currentSort = 'newest', searchQuery = '';
+let searchTimer;
+
+// Init
+document.addEventListener('DOMContentLoaded', async () => {
+  renderNavAuth();
+  await loadQuestions();
+  loadSidebarLeaders();
+  renderSubjectChips();
+  loadStats();
+
+  document.getElementById('search-input').addEventListener('input', e => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      searchQuery = e.target.value;
+      currentPage = 1;
+      loadQuestions();
+    }, 350);
+  });
+
+  document.getElementById('subject-filter').addEventListener('change', e => {
+    currentSubject = e.target.value;
+    currentPage = 1;
+    loadQuestions();
+  });
+
+  document.getElementById('sort-filter').addEventListener('change', e => {
+    currentSort = e.target.value;
+    currentPage = 1;
+    loadQuestions();
+  });
+
+  document.getElementById('btn-ask-question').addEventListener('click', () => {
+    if (!Auth.isLoggedIn()) { openModal('modal-auth'); return; }
+    openModal('modal-ask');
+  });
+});
+
+// Render nav
+function renderNavAuth() {
+  const el = document.getElementById('nav-auth');
+  const user = Auth.getUser();
+  if (user) {
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="profile.html" class="nav-user" title="View profile">
+          <div class="avatar">${user.username[0].toUpperCase()}</div>
+          <span>${user.username}</span>
+          <span class="rep-chip">⚡${user.reputation||0}</span>
+        </a>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+      </div>`;
+  } else {
+    el.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openModal('modal-auth')">Log In / Sign Up</button>`;
+  }
+}
+
+async function loadStats() {
+  try {
+    const data = await api('/questions?limit=1');
+    document.getElementById('stat-q').textContent = data.total || 0;
+    const lb = await api('/users/leaderboard');
+    document.getElementById('stat-u').textContent = lb.users?.length || 0;
+  } catch(_) {}
+}
+
+async function loadQuestions() {
+  const list = document.getElementById('questions-list');
+  list.innerHTML = '<div class="spinner"></div>';
+  try {
+    let url = `/questions?page=${currentPage}&sort=${currentSort}`;
+    if (currentSubject !== 'All') url += `&subject=${encodeURIComponent(currentSubject)}`;
+    if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+
+    const data = await api(url);
+
+    if (data.questions.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="emoji">🤔</div><p>No questions found. Be the first to ask!</p></div>`;
+      return;
+    }
+
+    list.innerHTML = data.questions.map(q => `
+      <div class="q-card ${q.isResolved?'q-resolved':''}" onclick="window.location='question.html?id=${q._id}'">
+        <div class="q-stats">
+          <div class="q-stat">
+            <div class="q-stat-num" style="color:var(--accent)">${q.upvotes?.length||0}</div>
+            <div class="q-stat-label">votes</div>
+          </div>
+          <div class="q-stat">
+            <div class="q-stat-num" style="${q.isResolved?'color:var(--green)':''}">${q.answerCount||0}</div>
+            <div class="q-stat-label">${q.isResolved?'✓ ans':'ans'}</div>
+          </div>
+          <div class="q-stat">
+            <div class="q-stat-num" style="color:var(--text3)">${q.views||0}</div>
+            <div class="q-stat-label">views</div>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div class="q-title">${escHtml(q.title)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
+            <span class="subject-pill">${q.subject}</span>
+            ${(q.tags||[]).map(t=>`<span class="tag">#${t}</span>`).join('')}
+          </div>
+          <div class="q-meta">
+            <span class="q-author">@${q.author?.username}</span>
+            ${renderBadges(q.author?.badges,2)}
+            <span>•</span>
+            <span>${timeAgo(q.createdAt)}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    // Pagination
+    renderPagination(data.pages, data.currentPage);
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state"><div class="emoji">⚠️</div><p>${err.message}</p><p style="font-size:.8rem;margin-top:8px">Make sure the backend server is running at localhost:5000</p></div>`;
+  }
+}
+
+function renderPagination(total, current) {
+  const el = document.getElementById('pagination');
+  if (total <= 1) { el.innerHTML = ''; return; }
+  let html = '';
+  for (let i = 1; i <= total; i++) {
+    html += `<button class="filter-btn ${i===current?'active':''}" onclick="goPage(${i})">${i}</button>`;
+  }
+  el.innerHTML = html;
+}
+function goPage(p) { currentPage = p; loadQuestions(); window.scrollTo(0,0); }
+
+async function loadSidebarLeaders() {
+  try {
+    const data = await api('/users/leaderboard');
+    const el = document.getElementById('sidebar-leaders');
+    el.innerHTML = data.users.slice(0,5).map((u,i) => `
+      <div class="lb-item" onclick="window.location='profile.html?user=${u.username}'">
+        <div class="lb-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</div>
+        <div class="avatar" style="width:30px;height:30px;font-size:.8rem">${u.username[0].toUpperCase()}</div>
+        <div class="lb-info">
+          <div class="lb-name">${u.username}</div>
+          <div class="lb-rep">⚡${u.reputation} rep</div>
+        </div>
+        <div style="font-size:.75rem;">${renderBadges(u.badges,2)}</div>
+      </div>
+    `).join('');
+  } catch(_) {}
+}
+
+function renderSubjectChips() {
+  const subjects = ['Mathematics','Physics','Chemistry','Biology','Computer Science','History','Economics'];
+  document.getElementById('subject-chips').innerHTML = subjects.map(s =>
+    `<span class="tag" style="cursor:pointer" onclick="filterBySubject('${s}')">${s}</span>`
+  ).join('');
+}
+function filterBySubject(s) {
+  currentSubject = s;
+  document.getElementById('subject-filter').value = s;
+  loadQuestions();
+}
+
+// Auth
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => {
+  if (e.target === m) m.classList.remove('open');
+}));
+
+function switchAuthTab(tab) {
+  document.getElementById('tab-login').style.display = tab==='login' ? '' : 'none';
+  document.getElementById('tab-register').style.display = tab==='register' ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0&&tab==='login')||(i===1&&tab==='register')));
+}
+
+async function handleLogin() {
+  const btn = document.getElementById('btn-login');
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Logging in...';
+  try {
+    const data = await api('/auth/login', { method:'POST', body: {
+      email: document.getElementById('login-email').value,
+      password: document.getElementById('login-password').value,
+    }});
+    Auth.setSession(data.token, data.user);
+    closeModal('modal-auth');
+    showToast(data.message, 'success');
+    renderNavAuth();
+    loadQuestions();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally { btn.disabled = false; btn.textContent = 'Log In'; }
+}
+
+async function handleRegister() {
+  const btn = document.getElementById('btn-register');
+  const errEl = document.getElementById('reg-error');
+  errEl.style.display = 'none';
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  try {
+    const data = await api('/auth/register', { method:'POST', body: {
+      username: document.getElementById('reg-username').value,
+      email: document.getElementById('reg-email').value,
+      password: document.getElementById('reg-password').value,
+    }});
+    Auth.setSession(data.token, data.user);
+    closeModal('modal-auth');
+    showToast(data.message, 'success');
+    if (data.user.badges?.length) showToast(`🏅 Badge unlocked: ${data.user.badges[0].description}`, 'badge');
+    renderNavAuth();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally { btn.disabled = false; btn.textContent = 'Create Account'; }
+}
+
+async function submitQuestion() {
+  const errEl = document.getElementById('ask-error');
+  errEl.style.display = 'none';
+  try {
+    const data = await api('/questions', { method:'POST', body: {
+      title: document.getElementById('q-title').value,
+      body: document.getElementById('q-body').value,
+      subject: document.getElementById('q-subject').value,
+      tags: document.getElementById('q-tags').value,
+    }});
+    closeModal('modal-ask');
+    showToast('Question posted! 🎉', 'success');
+    if (data.newBadges?.length) data.newBadges.forEach(b => showToast(`🏅 Badge unlocked: ${b.description}`, 'badge'));
+    // Update stored user
+    const user = Auth.getUser();
+    if (user) { user.reputation = (user.reputation||0)+2; Auth.setSession(Auth.getToken(), user); renderNavAuth(); }
+    currentPage = 1;
+    loadQuestions();
+    // Clear form
+    ['q-title','q-body','q-tags'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('q-subject').value='';
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+function logout() {
+  Auth.clearSession();
+  renderNavAuth();
+  showToast('Logged out. See you soon! 👋', 'info');
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

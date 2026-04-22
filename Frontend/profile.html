@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile — StudyHive</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐝</text></svg>">
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="index.html">🐝 Study<span>Hive</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">Questions</a>
+    <a href="leaderboard.html" class="nav-link">Leaderboard</a>
+  </div>
+  <div id="nav-auth"></div>
+</nav>
+
+<main class="container page">
+  <div id="profile-content"></div>
+</main>
+
+<div id="toast-container"></div>
+<script src="config.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+let targetUsername = params.get('user');
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderNavAuth();
+  const me = Auth.getUser();
+  if (!targetUsername && me) targetUsername = me.username;
+  if (!targetUsername) { location.href = 'index.html'; return; }
+  loadProfile();
+});
+
+function renderNavAuth() {
+  const el = document.getElementById('nav-auth');
+  const user = Auth.getUser();
+  if (user) {
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="profile.html" class="nav-user">
+          <div class="avatar">${user.username[0].toUpperCase()}</div>
+          <span>${user.username}</span>
+          <span class="rep-chip">⚡${user.reputation||0}</span>
+        </a>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+      </div>`;
+  } else {
+    el.innerHTML = `<button class="btn btn-primary btn-sm" onclick="location.href='index.html'">Log In</button>`;
+  }
+}
+
+async function loadProfile() {
+  const el = document.getElementById('profile-content');
+  el.innerHTML = '<div class="spinner"></div>';
+  try {
+    const data = await api(`/users/${targetUsername}`);
+    const { user, recentQuestions, recentAnswers } = data;
+    const me = Auth.getUser();
+    const isMe = me && me._id === user._id;
+
+    document.title = `${user.username} — StudyHive`;
+
+    el.innerHTML = `
+      <!-- Profile header -->
+      <div class="profile-header">
+        <div class="profile-avatar">${user.username[0].toUpperCase()}</div>
+        <div class="profile-info">
+          <div class="profile-name">${user.username}</div>
+          <div class="profile-bio">${user.bio || (isMe ? '<span style="color:var(--text3)">No bio yet. Add one below!</span>' : 'No bio.')}</div>
+          <div class="badges-row" style="margin-bottom:12px">${user.badges.map(b => {
+            const cfg = BADGE_CONFIG[b.name] || { icon:'🏅', label: b.name, color: '#888' };
+            return `<span class="badge-chip" style="--bc:${cfg.color};width:32px;height:32px;font-size:1rem" title="${cfg.label} — ${b.description||''}">${cfg.icon}</span>`;
+          }).join('')}</div>
+          <div class="profile-stats">
+            <div class="profile-stat"><div class="profile-stat-num">${user.reputation||0}</div><div class="profile-stat-label">Reputation</div></div>
+            <div class="profile-stat"><div class="profile-stat-num">${user.questionsAsked||0}</div><div class="profile-stat-label">Questions</div></div>
+            <div class="profile-stat"><div class="profile-stat-num">${user.answersGiven||0}</div><div class="profile-stat-label">Answers</div></div>
+            <div class="profile-stat"><div class="profile-stat-num">${user.totalLikesReceived||0}</div><div class="profile-stat-label">Likes</div></div>
+            <div class="profile-stat"><div class="profile-stat-num" style="color:var(--green)">${user.answersVerified||0}</div><div class="profile-stat-label">Verified</div></div>
+          </div>
+        </div>
+        ${isMe ? `
+          <div>
+            <button class="btn btn-outline btn-sm" onclick="toggleEditProfile()">✏️ Edit Profile</button>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Edit profile (hidden by default) -->
+      ${isMe ? `
+      <div id="edit-profile-form" style="display:none" class="card" style="margin-bottom:24px">
+        <div style="font-family:var(--font-display);font-weight:700;margin-bottom:16px">Edit Profile</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div class="form-group">
+            <label class="form-label">Bio</label>
+            <textarea class="form-textarea" id="edit-bio" style="min-height:80px">${user.bio||''}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Avatar URL <span style="color:var(--text3)">(optional)</span></label>
+            <input class="form-input" type="url" id="edit-avatar" value="${user.avatar||''}" placeholder="https://..." />
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveProfile()" style="align-self:flex-start">Save Changes</button>
+        </div>
+      </div>
+      ` : ''}
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('questions')">Questions (${recentQuestions.length})</button>
+        <button class="tab-btn" onclick="switchTab('answers')">Answers (${recentAnswers.length})</button>
+        <button class="tab-btn" onclick="switchTab('badges')">Badges (${user.badges.length})</button>
+      </div>
+
+      <div id="tab-questions">
+        ${recentQuestions.length === 0
+          ? `<div class="empty-state"><div class="emoji">❓</div><p>No questions yet.</p></div>`
+          : recentQuestions.map(q => `
+            <div class="q-card" style="margin-bottom:10px" onclick="location.href='question.html?id=${q._id}'">
+              <div class="q-stats">
+                <div class="q-stat"><div class="q-stat-num" style="color:var(--accent)">${q.upvotes?.length||0}</div><div class="q-stat-label">votes</div></div>
+              </div>
+              <div style="flex:1">
+                <div class="q-title">${escHtml(q.title)}</div>
+                <div style="display:flex;gap:8px;margin-top:6px">
+                  <span class="subject-pill">${q.subject}</span>
+                  ${q.isResolved ? '<span class="verified-badge vb-accepted" style="font-size:.72rem;padding:2px 8px">✅ Resolved</span>' : ''}
+                </div>
+                <div class="q-meta"><span>${timeAgo(q.createdAt)}</span></div>
+              </div>
+            </div>
+          `).join('')}
+      </div>
+
+      <div id="tab-answers" style="display:none">
+        ${recentAnswers.length === 0
+          ? `<div class="empty-state"><div class="emoji">💬</div><p>No answers yet.</p></div>`
+          : recentAnswers.map(a => `
+            <div class="card" style="margin-bottom:12px;cursor:pointer" onclick="location.href='question.html?id=${a.question?._id}'">
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+                ${a.isAccepted ? '<span class="verified-badge vb-accepted">✅ Accepted</span>' : ''}
+                ${a.isCommunityVerified ? '<span class="verified-badge vb-community">👥 Community Verified</span>' : ''}
+                <span style="font-size:.78rem;color:var(--text3)">${timeAgo(a.createdAt)}</span>
+                <span class="rep-chip">▲ ${a.upvotes?.length||0} votes</span>
+              </div>
+              <div style="color:var(--text2);font-size:.88rem;margin-bottom:8px">${escHtml((a.body||'').substring(0,200))}${(a.body||'').length>200?'...':''}</div>
+              <div style="font-size:.78rem;color:var(--text3)">On: <span style="color:var(--accent2)">${escHtml(a.question?.title||'')}</span></div>
+            </div>
+          `).join('')}
+      </div>
+
+      <div id="tab-badges" style="display:none">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+          ${user.badges.map(b => {
+            const cfg = BADGE_CONFIG[b.name] || { icon:'🏅', label: b.name, color: '#888' };
+            return `
+              <div style="background:var(--surface2);border:1px solid color-mix(in srgb,${cfg.color} 30%,var(--border));border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:14px">
+                <span style="font-size:2rem">${cfg.icon}</span>
+                <div>
+                  <div style="font-weight:700;font-family:var(--font-display)">${cfg.label}</div>
+                  <div style="font-size:.78rem;color:var(--text2)">${b.description||''}</div>
+                  <div style="font-size:.72rem;color:var(--text3);margin-top:4px">${timeAgo(b.awardedAt)}</div>
+                </div>
+              </div>
+            `;
+          }).join('') || '<div class="empty-state"><p>No badges yet.</p></div>'}
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">⚠️</div><p>${err.message}</p></div>`;
+  }
+}
+
+function switchTab(tab) {
+  ['questions','answers','badges'].forEach(t => {
+    document.getElementById(`tab-${t}`).style.display = t===tab ? '' : 'none';
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['questions','answers','badges'][i]===tab);
+  });
+}
+
+function toggleEditProfile() {
+  const form = document.getElementById('edit-profile-form');
+  if (form) form.style.display = form.style.display==='none' ? '' : 'none';
+}
+
+async function saveProfile() {
+  try {
+    const data = await api('/auth/profile', { method:'PUT', body:{
+      bio: document.getElementById('edit-bio').value,
+      avatar: document.getElementById('edit-avatar').value,
+    }});
+    showToast('Profile updated! ✨', 'success');
+    const user = Auth.getUser();
+    if (user) {
+      user.bio = data.user.bio;
+      user.avatar = data.user.avatar;
+      Auth.setSession(Auth.getToken(), user);
+    }
+    loadProfile();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function logout() {
+  Auth.clearSession();
+  location.href = 'index.html';
+}
+
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

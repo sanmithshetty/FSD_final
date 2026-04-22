@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Question — StudyHive</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐝</text></svg>">
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="index.html">🐝 Study<span>Hive</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">← All Questions</a>
+    <a href="leaderboard.html" class="nav-link">Leaderboard</a>
+  </div>
+  <div id="nav-auth"></div>
+</nav>
+
+<main class="container page">
+  <div id="question-detail"></div>
+
+  <!-- Answers section -->
+  <div id="answers-section" style="display:none">
+    <div class="section-title" id="answers-title">Answers</div>
+    <div id="answers-list"></div>
+
+    <!-- Post answer -->
+    <div style="margin-top:32px">
+      <div class="section-title">Your Answer</div>
+      <div id="answer-form-wrap">
+        <textarea class="form-textarea" id="answer-body" placeholder="Write a clear, helpful answer..." style="min-height:160px"></textarea>
+        <div id="answer-error" class="form-error" style="display:none;margin-top:6px"></div>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="submitAnswer()">💬 Post Answer</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="toast-container"></div>
+
+<script src="config.js"></script>
+<script>
+const params = new URLSearchParams(location.search);
+const qId = params.get('id');
+let currentQuestion = null;
+let currentAnswers = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderNavAuth();
+  if (!qId) { location.href = 'index.html'; return; }
+  loadQuestion();
+});
+
+function renderNavAuth() {
+  const el = document.getElementById('nav-auth');
+  const user = Auth.getUser();
+  if (user) {
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="profile.html" class="nav-user">
+          <div class="avatar">${user.username[0].toUpperCase()}</div>
+          <span>${user.username}</span>
+          <span class="rep-chip">⚡${user.reputation||0}</span>
+        </a>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+      </div>`;
+  } else {
+    el.innerHTML = `<button class="btn btn-primary btn-sm" onclick="location.href='index.html'">Log In</button>`;
+  }
+}
+
+async function loadQuestion() {
+  const el = document.getElementById('question-detail');
+  el.innerHTML = '<div class="spinner"></div>';
+  try {
+    const data = await api(`/questions/${qId}`);
+    currentQuestion = data.question;
+    currentAnswers = data.answers;
+    renderQuestion(data.question);
+    renderAnswers(data.answers);
+    document.getElementById('answers-section').style.display = '';
+    document.getElementById('answers-title').textContent = `${data.answers.length} Answer${data.answers.length!==1?'s':''}`;
+    document.title = data.question.title + ' — StudyHive';
+
+    // Show answer form only if logged in
+    const user = Auth.getUser();
+    if (!user) {
+      document.getElementById('answer-form-wrap').innerHTML = `
+        <div class="card" style="text-align:center;padding:24px">
+          <p style="color:var(--text2);margin-bottom:12px">You need to be logged in to answer questions.</p>
+          <button class="btn btn-primary" onclick="location.href='index.html'">Log In / Sign Up</button>
+        </div>`;
+    }
+  } catch (err) {
+    el.innerHTML = `<div class="empty-state"><div class="emoji">⚠️</div><p>${err.message}</p></div>`;
+  }
+}
+
+function renderQuestion(q) {
+  const user = Auth.getUser();
+  const isAuthor = user && q.author._id === user._id;
+  const upvoted = user && q.upvotes?.includes(user._id);
+
+  document.getElementById('question-detail').innerHTML = `
+    <div class="card" style="margin-bottom:24px">
+      <div style="display:flex;gap:16px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:44px">
+          <button class="vote-btn ${upvoted?'voted-up':''}" id="q-upvote-btn" onclick="upvoteQuestion()" title="Upvote">▲</button>
+          <span class="vote-score" id="q-upvote-count">${q.upvotes?.length||0}</span>
+          ${q.isResolved ? '<span title="Resolved" style="font-size:1.1rem">✅</span>' : ''}
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+            <span class="subject-pill">${q.subject}</span>
+            ${(q.tags||[]).map(t=>`<span class="tag">#${t}</span>`).join('')}
+            ${q.isResolved ? '<span class="verified-badge vb-accepted">✅ Resolved</span>' : ''}
+          </div>
+          <h1 style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;margin-bottom:14px;line-height:1.3">${escHtml(q.title)}</h1>
+          <div style="color:var(--text);line-height:1.8;white-space:pre-wrap;word-break:break-word">${escHtml(q.body)}</div>
+          <hr class="divider">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <a href="profile.html?user=${q.author.username}" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text)">
+                <div class="avatar" style="width:34px;height:34px">${q.author.username[0].toUpperCase()}</div>
+                <div>
+                  <div style="font-weight:600;font-size:.9rem;color:var(--accent2)">${q.author.username}</div>
+                  <div style="font-size:.75rem;color:var(--text3)">⚡${q.author.reputation||0} rep</div>
+                </div>
+              </a>
+              <div class="badges-row">${renderBadges(q.author.badges)}</div>
+            </div>
+            <div style="font-size:.8rem;color:var(--text3)">
+              Asked ${timeAgo(q.createdAt)} · ${q.views} views
+              ${isAuthor ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);margin-left:8px" onclick="deleteQuestion()">🗑 Delete</button>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAnswers(answers) {
+  const user = Auth.getUser();
+  const isQAuthor = user && currentQuestion?.author._id === user._id;
+
+  if (answers.length === 0) {
+    document.getElementById('answers-list').innerHTML = `
+      <div class="empty-state"><div class="emoji">💭</div><p>No answers yet. Be the first to help!</p></div>`;
+    return;
+  }
+
+  document.getElementById('answers-list').innerHTML = answers.map(a => {
+    const score = (a.upvotes?.length||0) - (a.downvotes?.length||0);
+    const votedUp = user && a.upvotes?.map(String).includes(user._id);
+    const votedDown = user && a.downvotes?.map(String).includes(user._id);
+    const isMyAnswer = user && a.author._id === user._id;
+
+    return `
+      <div class="answer-card ${a.isAccepted?'is-accepted':''} ${a.isCommunityVerified&&!a.isAccepted?'community-verified':''}" id="answer-${a._id}">
+        <div class="vote-col">
+          <button class="vote-btn ${votedUp?'voted-up':''}" onclick="voteAnswer('${a._id}','up')" title="Upvote">▲</button>
+          <span class="vote-score" id="score-${a._id}">${score}</span>
+          <button class="vote-btn ${votedDown?'voted-down':''}" onclick="voteAnswer('${a._id}','down')" title="Downvote">▼</button>
+          ${isQAuthor ? `
+            <button class="vote-btn ${a.isAccepted?'voted-up':''}" onclick="acceptAnswer('${a._id}')" title="${a.isAccepted?'Remove acceptance':'Accept this answer'}" style="margin-top:6px;font-size:.9rem">
+              ${a.isAccepted?'✅':'☑️'}
+            </button>
+          ` : ''}
+        </div>
+        <div class="answer-body">
+          <div class="answer-badges">
+            ${a.isAccepted ? '<span class="verified-badge vb-accepted">✅ Accepted Answer</span>' : ''}
+            ${a.isCommunityVerified ? '<span class="verified-badge vb-community">👥 Community Verified</span>' : ''}
+          </div>
+          <div class="answer-text">${escHtml(a.body)}</div>
+          <hr class="divider" style="margin:14px 0">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <a href="profile.html?user=${a.author.username}" style="display:flex;align-items:center;gap:8px;text-decoration:none">
+                <div class="avatar" style="width:30px;height:30px;font-size:.8rem">${a.author.username[0].toUpperCase()}</div>
+                <div>
+                  <div style="font-weight:600;font-size:.85rem;color:var(--accent2)">${a.author.username}</div>
+                  <div style="font-size:.72rem;color:var(--text3)">⚡${a.author.reputation||0}</div>
+                </div>
+              </a>
+              <div class="badges-row">${renderBadges(a.author.badges)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text3)">
+              ${timeAgo(a.createdAt)}
+              ${isMyAnswer ? `<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="deleteAnswer('${a._id}')">🗑</button>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function upvoteQuestion() {
+  if (!Auth.isLoggedIn()) { showToast('Please log in to vote.', 'error'); return; }
+  try {
+    const data = await api(`/questions/${qId}/upvote`, { method:'POST' });
+    document.getElementById('q-upvote-count').textContent = data.upvotes;
+    document.getElementById('q-upvote-btn').classList.toggle('voted-up', data.upvoted);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function voteAnswer(answerId, type) {
+  if (!Auth.isLoggedIn()) { showToast('Please log in to vote.', 'error'); return; }
+  try {
+    const data = await api(`/questions/${qId}/answers/${answerId}/vote`, { method:'POST', body:{type} });
+    const score = data.upvotes - data.downvotes;
+    document.getElementById(`score-${answerId}`).textContent = score;
+    if (data.isCommunityVerified) {
+      const card = document.getElementById(`answer-${answerId}`);
+      if (!card.classList.contains('is-accepted')) card.classList.add('community-verified');
+    }
+    // Reload to update button states
+    await loadQuestion();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function acceptAnswer(answerId) {
+  if (!Auth.isLoggedIn()) return;
+  try {
+    const data = await api(`/questions/${qId}/answers/${answerId}/accept`, { method:'POST' });
+    showToast(data.message, 'success');
+    await loadQuestion();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function submitAnswer() {
+  const errEl = document.getElementById('answer-error');
+  errEl.style.display = 'none';
+  const body = document.getElementById('answer-body').value;
+  try {
+    const data = await api(`/questions/${qId}/answers`, { method:'POST', body:{ body } });
+    showToast('Answer posted! 🎉', 'success');
+    if (data.newBadges?.length) data.newBadges.forEach(b => showToast(`🏅 Badge unlocked: ${b.description}`, 'badge'));
+    document.getElementById('answer-body').value = '';
+    // Update user rep
+    const user = Auth.getUser();
+    if (user) { user.reputation = (user.reputation||0)+5; Auth.setSession(Auth.getToken(), user); renderNavAuth(); }
+    await loadQuestion();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+async function deleteQuestion() {
+  if (!confirm('Delete this question and all its answers?')) return;
+  try {
+    await api(`/questions/${qId}`, { method:'DELETE' });
+    showToast('Question deleted.', 'info');
+    setTimeout(() => location.href = 'index.html', 1000);
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+async function deleteAnswer(answerId) {
+  if (!confirm('Delete this answer?')) return;
+  try {
+    await api(`/questions/${qId}/answers/${answerId}`, { method:'DELETE' });
+    showToast('Answer deleted.', 'info');
+    await loadQuestion();
+  } catch (err) { showToast(err.message, 'error'); }
+}
+
+function logout() {
+  Auth.clearSession();
+  renderNavAuth();
+  showToast('Logged out.', 'info');
+  location.reload();
+}
+
+function escHtml(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaderboard — StudyHive</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐝</text></svg>">
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="index.html">🐝 Study<span>Hive</span></a>
+  <div class="nav-links">
+    <a href="index.html" class="nav-link">Questions</a>
+    <a href="leaderboard.html" class="nav-link active">Leaderboard</a>
+  </div>
+  <div id="nav-auth"></div>
+</nav>
+
+<main class="container page">
+
+  <div style="text-align:center;margin-bottom:40px">
+    <div style="font-size:3rem;margin-bottom:8px">🏆</div>
+    <h1 style="font-family:var(--font-display);font-size:2.2rem;font-weight:800;margin-bottom:8px">Top Contributors</h1>
+    <p style="color:var(--text2)">The brightest minds in StudyHive. Earn reputation by giving great answers.</p>
+  </div>
+
+  <!-- Top 3 podium -->
+  <div id="podium" style="display:flex;justify-content:center;gap:16px;align-items:flex-end;margin-bottom:48px;flex-wrap:wrap"></div>
+
+  <!-- Full leaderboard table -->
+  <div class="card">
+    <div class="section-title">All Rankings</div>
+    <div id="lb-table"></div>
+  </div>
+
+  <!-- Badges legend -->
+  <div class="card" style="margin-top:24px">
+    <div class="section-title">Badge Guide</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px" id="badge-guide"></div>
+  </div>
+</main>
+
+<div id="toast-container"></div>
+<script src="config.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  renderNavAuth();
+  loadLeaderboard();
+  renderBadgeGuide();
+});
+
+function renderNavAuth() {
+  const el = document.getElementById('nav-auth');
+  const user = Auth.getUser();
+  if (user) {
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <a href="profile.html" class="nav-user">
+          <div class="avatar">${user.username[0].toUpperCase()}</div>
+          <span>${user.username}</span>
+          <span class="rep-chip">⚡${user.reputation||0}</span>
+        </a>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+      </div>`;
+  } else {
+    el.innerHTML = `<button class="btn btn-primary btn-sm" onclick="location.href='index.html'">Log In</button>`;
+  }
+}
+
+async function loadLeaderboard() {
+  try {
+    const data = await api('/users/leaderboard');
+    const users = data.users;
+
+    // Podium for top 3
+    const podiumColors = ['#fbbf24','#9ca3af','#cd7c2f'];
+    const podiumHeights = ['130px','100px','80px'];
+    const podiumOrder = [1,0,2]; // 2nd, 1st, 3rd
+
+    const podiumEl = document.getElementById('podium');
+    podiumEl.innerHTML = podiumOrder.filter(i => users[i]).map(i => {
+      const u = users[i];
+      const rank = i + 1;
+      return `
+        <div onclick="location.href='profile.html?user=${u.username}'" style="display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:transform .2s" onmouseenter="this.style.transform='translateY(-4px)'" onmouseleave="this.style.transform=''">
+          <div style="font-size:1.8rem">${rank===1?'👑':rank===2?'🥈':'🥉'}</div>
+          <div class="avatar" style="width:52px;height:52px;font-size:1.3rem;border:3px solid ${podiumColors[i]}">${u.username[0].toUpperCase()}</div>
+          <div style="font-weight:700;font-family:var(--font-display)">${u.username}</div>
+          <div class="badges-row" style="justify-content:center">${renderBadges(u.badges,3)}</div>
+          <div style="background:${podiumColors[i]};color:#000;font-weight:800;padding:6px 16px;border-radius:8px;font-family:var(--font-display)">⚡${u.reputation}</div>
+          <div style="width:80px;height:${podiumHeights[i]};background:color-mix(in srgb,${podiumColors[i]} 20%,var(--surface2));border-radius:8px 8px 0 0;border:1px solid color-mix(in srgb,${podiumColors[i]} 40%,transparent);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:800;color:${podiumColors[i]};font-family:var(--font-display)">#${rank}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Full table
+    document.getElementById('lb-table').innerHTML = `
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border)">
+            <th style="padding:10px;text-align:left;color:var(--text3);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">#</th>
+            <th style="padding:10px;text-align:left;color:var(--text3);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">User</th>
+            <th style="padding:10px;text-align:center;color:var(--text3);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Rep</th>
+            <th style="padding:10px;text-align:center;color:var(--text3);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Answers</th>
+            <th style="padding:10px;text-align:center;color:var(--text3);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Likes</th>
+            <th style="padding:10px;text-align:center;color:var(--text3);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Verified</th>
+            <th style="padding:10px;text-align:left;color:var(--text3);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px">Badges</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${users.map((u,i) => `
+            <tr style="border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onclick="location.href='profile.html?user=${u.username}'"
+              onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+              <td style="padding:12px 10px">
+                <span class="lb-rank ${i===0?'top1':i===1?'top2':i===2?'top3':''}" style="font-size:1rem">
+                  ${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}
+                </span>
+              </td>
+              <td style="padding:12px 10px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="avatar" style="width:34px;height:34px;font-size:.9rem">${u.username[0].toUpperCase()}</div>
+                  <span style="font-weight:600">${u.username}</span>
+                </div>
+              </td>
+              <td style="padding:12px 10px;text-align:center"><span class="rep-chip">⚡${u.reputation}</span></td>
+              <td style="padding:12px 10px;text-align:center;color:var(--text2)">${u.answersGiven||0}</td>
+              <td style="padding:12px 10px;text-align:center;color:var(--text2)">${u.totalLikesReceived||0}</td>
+              <td style="padding:12px 10px;text-align:center"><span style="color:var(--green)">${u.answersVerified||0}</span></td>
+              <td style="padding:12px 10px"><div class="badges-row">${renderBadges(u.badges,5)}</div></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (err) {
+    document.getElementById('lb-table').innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
+  }
+}
+
+function renderBadgeGuide() {
+  document.getElementById('badge-guide').innerHTML = Object.entries(BADGE_CONFIG).map(([key, b]) => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+      <span style="font-size:1.4rem">${b.icon}</span>
+      <div>
+        <div style="font-weight:600;font-size:.88rem">${b.label}</div>
+        <div style="font-size:.75rem;color:var(--text3)">${getBadgeHint(key)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getBadgeHint(key) {
+  const hints = {
+    newcomer: 'Just joined StudyHive',
+    curious: 'Ask your first question',
+    helper: 'Give your first answer',
+    rising_star: 'Earn 10+ likes on answers',
+    expert: 'Earn 50+ likes on answers',
+    legend: 'Earn 200+ likes — wow!',
+    verified_guru: 'Get 10+ answers accepted',
+    top_contributor: 'Most helpful this month',
+    streak_7: 'Active 7 days in a row',
+  };
+  return hints[key] || '';
+}
+
+function logout() {
+  Auth.clearSession();
+  renderNavAuth();
+  showToast('Logged out.', 'info');
+}
+</script>
+</body>
+</html>
